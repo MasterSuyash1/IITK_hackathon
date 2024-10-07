@@ -7,4 +7,10 @@ plotly==5.22.0
 shapely==2.0.1
 geopandas==0.14.4
 geopy==2.4.1
-
+pandas
+numpy
+scikit-learn
+xgboost
+gtfs-kit
+modin[all]
+scikit-learn-intelex
