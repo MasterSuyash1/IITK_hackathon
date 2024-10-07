@@ -1,13 +1,14 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { ChakraProvider } from '@chakra-ui/react';
-import App from './App';
-import Home from "./Home";
-const root = ReactDOM.createRoot(document.getElementById('root'));
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { ChakraProvider } from "@chakra-ui/react";
+import App from "./App";
+import { ConfigProvider } from "./configContext"; // Import the ConfigProvider
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
-
     <ChakraProvider>
-      <App/>
+        <ConfigProvider> {/* Wrap the app with ConfigProvider */}
+            <App />
+        </ConfigProvider>
     </ChakraProvider>
-
 );
