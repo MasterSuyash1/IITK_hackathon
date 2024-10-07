@@ -576,5 +576,170 @@ def routes_between_stops():
     }), 200
 
 
+
+# Load and Preprocess The Data For Model
+def load_preprocess_data():
+    # Compute trip_stats
+    trips_stats = feed.compute_trip_stats()
+
+    # Add time of day classification
+    trips_stats['time_of_day'] = trips_stats['start_time'].apply(classify_time_of_day)
+
+    trips_stats['start_hour'] = pd.to_datetime(trips_stats['start_time'].apply(clean_time), format="mixed").dt.hour
+    trips_stats['end_hour'] = pd.to_datetime(trips_stats['end_time'].apply(clean_time), format="mixed").dt.hour
+
+    trips_stats['is_peak_hours'] = trips_stats['start_hour'].apply(lambda x: 1 if (8 <= x <= 12 or 16 <= x <= 20) else 0)
+
+    trips_stats1 = trips_stats.merge(feed.trips[['trip_id', 'route_id', 'service_id']], left_on=['trip_id', 'route_id'], right_on=['trip_id', 'route_id'], how='left')
+
+    trips_stats1 = trips_stats1.merge(feed.calendar_dates[['service_id', 'date']], on='service_id', how='left')
+    trips_stats1.dropna(subset=['date'], inplace=True)
+
+    trips_stats1['Date'] = pd.to_datetime(trips_stats1['date'], format='%Y%m%d')
+    trips_stats1['day'] = trips_stats1['Date'].dt.day
+    trips_stats1['month'] = trips_stats1['Date'].dt.month
+    trips_stats1['weekday'] = trips_stats1['Date'].dt.weekday
+
+    trips_stats1['is_weekend'] = trips_stats1['weekday'].apply(lambda x: 1 if x >= 5 else 0)
+    trips_stats1 = trips_stats1.merge(feed.routes[['route_id', 'route_long_name']], on='route_id', how='left')
+
+    trips_demand = trips_stats1.groupby(by=['route_id', 'Date', 'month', 'day', 'weekday', 'is_weekend', 'time_of_day', 'is_peak_hours']).agg(
+        TotalTrips=('trip_id', 'nunique'),
+        TotalStops=('num_stops', 'median'),
+        AvgDuration=('duration', 'mean'),
+        AvgDistance=('distance', 'mean'),
+        AvgSpeed=('speed', 'mean'),
+    ).reset_index()
+
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    encoded_data = encoder.fit_transform(trips_demand[['time_of_day']])
+
+    timeofday_encoded_df = pd.DataFrame(encoded_data, columns=encoder.get_feature_names_out(['time_of_day']))
+    trips_demand = pd.concat([trips_demand, timeofday_encoded_df], axis=1)
+
+    joblib.dump(encoder, "onehot_encoder.pkl")
+
+    
+    X = trips_demand.drop(columns=['TotalTrips', 'Date', 'time_of_day'])
+    y = trips_demand['TotalTrips']
+
+    return X, y
+
+def train_model():
+    global model
+
+    X, y = load_preprocess_data()
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    target_encoder = ce.TargetEncoder(cols=['route_id'])
+
+    X_train = target_encoder.fit_transform(X_train, y_train)
+    X_test = target_encoder.transform(X_test)
+
+    joblib.dump(target_encoder, "target_encoder.pkl")
+    
+    rf_model = RandomForestRegressor(n_estimators=200, random_state=42)
+    rf_model.fit(X_train, y_train)
+
+    y_pred_rf = rf_model.predict(X_test)
+
+    mse_rf = mean_squared_error(y_test, y_pred_rf)
+    mae_rf = mean_absolute_error(y_test, y_pred_rf)
+
+    feature_importances = rf_model.feature_importances_
+    feature_importances_df = pd.DataFrame({'Feature': X_train.columns, 'Importance': feature_importances.round(4)})
+    feature_importances_df.sort_values(by=['Importance'], ascending=False, inplace=True)
+
+    joblib.dump(model, 'trained_model.pkl')
+
+    return mse_rf, mae_rf, feature_importances_df
+
+# API route to trigger model training
+@app.route('/train_model', methods=['POST'])
+def train_model_api():
+    try:
+        # Call the training function
+        mse, mae, feature_importances = train_model()
+        
+        # Return success message with evaluation results
+        return jsonify({
+            'message': 'Model trained successfully!',
+            'mse': mse,
+            'mae': mae,
+            'feature_importance': feature_importances
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'message': 'Error during model training.',
+            'error': str(e)
+        }), 500
+
+def preprocess_input(route_id, date, time, avg_speed, avg_distance, avg_duration):
+
+    onehot_encoder = joblib.load("onehot_encoder.pkl")
+    target_encoder = joblib.load("target_encoder.pkl")
+
+    # Convert the time to a time_of_day classification
+    time_of_day = classify_time_of_day(time)
+
+    input_data = {
+        'route_id': route_id,
+        'Date': pd.to_datetime(date),
+        'time_of_day': time_of_day,
+        'is_peak_hours': 1 if 8 <= int(time.split(":")[0]) <= 12 or 16 <= int(time.split(":")[0]) <= 20 else 0,
+        'month': pd.to_datetime(date).month,
+        'day': pd.to_datetime(date).day,
+        'weekday': pd.to_datetime(date).weekday(),
+        'is_weekend': 1 if pd.to_datetime(date).weekday() >= 5 else 0,
+        'AvgSpeed': avg_speed,
+        'AvgDistance': avg_distance,
+        'AvgDuration': avg_duration,
+    }
+
+    input_df = pd.DataFrame([input_data])
+
+    # Encode time_of_day using the saved onehot encoder
+    time_of_day_encoded = onehot_encoder.transform(input_df[['time_of_day']])
+    time_of_day_encoded_df = pd.DataFrame(time_of_day_encoded, columns=onehot_encoder.get_feature_names_out(['time_of_day']))
+    input_df = pd.concat([input_df, time_of_day_encoded_df], axis=1)
+
+    # Drop unnecessary columns
+    input_df.drop(columns=['Date', 'time_of_day'], inplace=True)
+
+    return input_df
+
+@app.route('/predict_demand', methods=['POST'])
+def predict_demand():
+    try:
+        # Get the request data (ensure the required fields are present)
+        model = joblib.load("trained_model.pkl")
+        
+        data = request.get_json()
+        route_id = data['route_id']
+        date = data['date']
+        time = data['time']
+        avg_speed = data['avg_speed']
+        avg_distance = data['avg_distance']
+        avg_duration = data['avg_duration']
+
+        # Preprocess the input data
+        input_data = preprocess_input(route_id, date, time, avg_speed, avg_distance, avg_duration)
+
+        # Use the model to predict trip demand
+        predicted_demand = model.predict(input_data)
+
+        # Return the prediction result
+        return jsonify({
+            'predicted_demand': predicted_demand[0]
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'message': 'Error during prediction.',
+            'error': str(e)
+        }), 500
+
+
 if  __name__ == '__main__':
   app.run(debug=True)
