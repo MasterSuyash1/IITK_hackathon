@@ -11,11 +11,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
-from sklearn.cluster import KMeans
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+# Intel Modin Integration for Faster Data Manipulation
+import modin.pandas as pd
+
+# Data Visualization Library
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -23,18 +23,28 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 
+# Map Visualization Library
 import folium
 from shapely.geometry import LineString, Point
 from folium.plugins import MarkerCluster, HeatMap
 from folium import Marker, Icon, Circle, CircleMarker, GeoJson, PolyLine, Map
 from geopy.distance import geodesic
 
+# Intel extension for scikit-learn for optimized ML Tasks 
+from sklearnex import patch_sklearn
+patch_sklearn()
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
+from sklearn.cluster import KMeans
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
 import gtfs_kit as gk
 
 app = Flask(__name__)
 CORS(app)
 
-path = Path('.\data\gtfs-nyc-2023.zip')
+path = Path('data/gtfs-nyc-2023.zip')
 feed = gk.read_feed(path, dist_units='km')
 # print(feed.validate())
 
@@ -64,8 +74,10 @@ def get_routes():
     """
     API to get the list of routes from the GTFS feed.
     """
-    routes_df = feed.routes
+    routes_df = feed.routes.fillna('NA')  # Replace NaN with a placeholder like 'NA'
     routes_json = routes_df.to_dict(orient='records')
+    
+    # print("Routes JSON (after replacing NaN):", routes_json)  # Log modified response
     return jsonify(routes_json), 200
 
 @app.route('/route/<route_id>', methods=['GET'])
@@ -74,7 +86,9 @@ def get_route_by_id(route_id):
     API to get the details of a specific route by its ID.
     """
     route = feed.routes[feed.routes['route_id'] == route_id]
+
     if not route.empty:
+        route = route.fillna('NA')  # Replace NaN with 'NA'
         route_json = route.to_dict(orient='records')
         return jsonify(route_json), 200
     else:
@@ -83,9 +97,9 @@ def get_route_by_id(route_id):
 @app.route('/stops', methods=['GET'])
 def get_stops():
     """
-    API to get the list of all stops from the GTFS feed.
+    API to get the list of all stops from the GTFS feed, replacing NaN values.
     """
-    stops_df = feed.stops
+    stops_df = feed.stops.fillna("NA")  # Replace NaN with "NA" or choose None to send null
     stops_json = stops_df.to_dict(orient='records')
     return jsonify(stops_json), 200
 
@@ -106,10 +120,12 @@ def get_trips():
     """
     API to get the list of all trips from the GTFS feed.
     """
-    trips_df = feed.trips
+    trips_df = feed.trips.fillna('NA')  # Replace NaN with a placeholder like 'NA'
     trips_json = trips_df.to_dict(orient='records')
+    
+    # print("Trips JSON (after replacing NaN):", trips_json)  # Optional: Log modified response
     return jsonify(trips_json), 200
-
+  
 @app.route('/trip/<trip_id>', methods=['GET'])
 def get_trip_by_id(trip_id):
     """
@@ -117,7 +133,7 @@ def get_trip_by_id(trip_id):
     """
     trip = feed.trips[feed.trips['trip_id'] == trip_id]
     if not trip.empty:
-        trip_json = trip.to_dict(orient='records')
+        trip_json = trip.fillna('NA').to_dict(orient='records')  # Replace NaN with 'NA'
         return jsonify(trip_json), 200
     else:
         return jsonify({'error': 'Trip not found'}), 404
@@ -193,7 +209,13 @@ def get_route_stats():
 
     # Compute route_stats for the specific date
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    cols_round_off = ['mean_headway', 'mean_trip_distance', 'mean_trip_duration', 'service_distance', 'service_duration', 'service_speed']
+    route_stats[cols_round_off] = route_stats[cols_round_off].round(2)
+    route_stats['mean_trip_duration'] = route_stats['mean_trip_duration'] * 60
+    route_stats['service_duration'] = route_stats['service_duration'] * 60
+    route_stats[['mean_headway', 'min_headway', 'max_headway']].fillna(0, inplace=True)
+    route_stats.fillna('NA',  inplace=True)
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']], on='route_id', how='left')
 
     # Convert route_stats DataFrame to JSON and return it
     route_stats_json = route_stats.to_dict(orient='records')
@@ -256,14 +278,19 @@ def get_trip_stats():
         'speed': ['mean', 'min', 'max'] 
     }).reset_index()
 
+    trip_duration_cols = ['mean_duration', 'min_duration', 'max_duration', 'mean_speed', 'min_speed', 'max_speed']
+    trip_period_cols = ['mean_duration', 'min_duration', 'max_duration', 'mean_speed', 'min_speed', 'max_speed']
 
+    
     # Convert analysis DataFrame to JSON
     trip_duration_analysis.columns = ['time_of_day', 'num_trips', 'mean_duration', 'min_duration', 'max_duration',
                                       'mean_speed', 'min_speed', 'max_speed']
+    trip_duration_analysis[trip_duration_cols] = trip_duration_analysis[trip_duration_cols].round(2)
     trip_duration_analysis_json = trip_duration_analysis.to_dict(orient='records')
 
     trip_period_analysis.columns = ['period_time', 'num_trips', 'mean_duration', 'min_duration', 'max_duration',
                                       'mean_speed', 'min_speed', 'max_speed']
+    trip_period_analysis[trip_period_cols] = trip_period_analysis[trip_period_cols].round(2)
     trip_period_analysis_json = trip_period_analysis.to_dict(orient='records')
     
     return jsonify({'trip_duration_analysis': trip_duration_analysis_json, 
@@ -310,7 +337,8 @@ def get_shortest_longest_routes():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    route_stats['mean_trip_distance'] = route_stats['mean_trip_distance'].round(2)
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']],on='route_id', how='left')
 
     shortest_routes = route_stats.sort_values(by='mean_trip_distance').head(10)
     longest_routes = route_stats.sort_values(by='mean_trip_distance', ascending=False).head(10)
@@ -331,11 +359,16 @@ def get_slowest_fastest_routes():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
+    route_stats['service_speed'] = route_stats['service_speed'].round(2)
     route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
 
-    slowest_fastest_routes = route_stats.sort_values(by='service_speed')
+    slowest_routes = route_stats.sort_values(by='service_speed').head(10)
+    fastest_routes = route_stats.sort_values(by='service_speed', ascending=False).head(10)
 
-    return jsonify({'slowest_fastest_routes': slowest_fastest_routes.to_dict(orient='records')}), 200
+    return jsonify({
+        'slowest_routes': slowest_routes.to_dict(orient='records'),
+        'fastest_routes': fastest_routes.to_dict(orient='records')
+    }), 200
 
 
 @app.route('/api/peak_hour_traffic',  methods=['GET'])
@@ -350,7 +383,7 @@ def get_peak_hour_traffic():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']],on='route_id', how='left')
 
     trip_stats['time_of_day'] = trip_stats['start_time'].apply(classify_time_of_day)
     trip_stats['time_period'] = trip_stats['start_time'].apply(classify_time_period)
@@ -359,9 +392,9 @@ def get_peak_hour_traffic():
     peak_hour_trips =  trip_stats[trip_stats['time_of_day'].str.contains("peak", case=False)]
     peak_hour_routes = peak_hour_trips.groupby('route_id').agg({
         'trip_id': 'count',
-        'time_period': list,
-        'time_period_counts': 'nunique'
+        'time_period': 'unique',
     }).reset_index()
+    peak_hour_routes['time_period'] = peak_hour_routes['time_period'].apply(lambda x: list(x))
     peak_hour_routes = peak_hour_routes.merge(route_stats)
 
     return  jsonify({'peak_hour_routes': peak_hour_routes.to_dict(orient='records')}), 200
@@ -389,7 +422,158 @@ def get_distance_coverage_optimization():
 
     return  jsonify({'inefficient_routes': inefficient_routes.to_dict(orient='records')}), 200
 
+@app.route('/api/route_efficiency',  methods=['GET'])
+def  get_route_efficiency():
+    date = request.args.get('date')
+    # Validate the date format
+    try:
+        pd.to_datetime(date, format="%Y%m%d")  # Validate date format
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYYMMDD.'}), 400
+    
+    trip_stats = feed.compute_trip_stats()
 
+    route_stats = feed.compute_route_stats(trip_stats, dates=[date])
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+
+    trip_stats['time_of_day'] = trip_stats['start_time'].apply(classify_time_of_day)
+    trip_stats['time_period'] = trip_stats['start_time'].apply(classify_time_period)
+
+    route_trips = trip_stats.groupby(by=['route_id']).agg(
+        avg_stops=('num_stops', 'mean'),
+        avg_trip_speed=('speed', 'mean')
+    ).reset_index()
+
+    route_stats = route_stats.merge(route_trips, on='route_id', how='inner')
+
+    max_service_speed = route_stats['service_speed'].max()
+    max_avg_trip_speed = route_stats['avg_trip_speed'].max()
+    max_num_trips = route_stats['num_trips'].max()
+    max_headway = route_stats['mean_headway'].max()
+    max_avg_stops = route_stats['avg_stops'].max()
+
+    route_stats['efficiency_score'] = (0.225 * (route_stats['service_speed'] / max_service_speed) + 
+                                       0.225 * (route_stats['avg_trip_speed'] / max_avg_trip_speed) + 
+                                       0.225 * (route_stats['num_trips'] / max_num_trips) + 
+                                       0.225 * (route_stats['avg_stops'] / max_avg_stops) - 
+                                       0.1 * (route_stats['mean_headway'] / max_headway))
+    
+    return  jsonify({
+        'most_efficient_routes': route_stats.sort_values(by=['efficiency_score'], ascending=False).iloc[:10].to_dict(orient='records'),
+        'least_efficient_routes':  route_stats.sort_values(by=['efficiency_score'], ascending=True).iloc[:10].to_dict(orient='records')
+    }), 200
+
+def clean_time(x):
+    date = datetime.datetime.today()
+    hr, min, sec = x.split(':')
+    if x.startswith('24'):
+        date = date + datetime.timedelta(days=1)
+        hr = '00'
+    x = f"{date.strftime('%Y-%m-%d')} {hr}:{min}:{sec}"
+    return x
+
+def get_in_between_stops(trip_id, start_stop_id, end_stop_id):
+    stop_times = feed.stop_times
+
+    trip_stop_times = stop_times[stop_times['trip_id'] == trip_id].sort_values(by=['stop_sequence'])
+
+    trip_stop_times['at'] = pd.to_datetime(trip_stop_times['arrival_time'].apply(clean_time))
+    trip_stop_times['dt'] = pd.to_datetime(trip_stop_times['departure_time'].apply(clean_time))
+    # print(trip_stop_times)
+
+    trip_stop_times['time_diff'] = trip_stop_times.groupby(by="trip_id")['at'].diff().dt.total_seconds() / 60
+    trip_stop_times['time_diff'] = trip_stop_times['time_diff'].fillna(0)
+
+    trip_stop_times['shape_dist_traveled'] = trip_stop_times['shape_dist_traveled'].fillna(0)
+
+    trip_stop_times = trip_stop_times.drop(['at', 'dt'], axis=1)
+
+    start_sequence = trip_stop_times[trip_stop_times['stop_id'] == start_stop_id]['stop_sequence'].values[0]
+    end_sequence = trip_stop_times[trip_stop_times['stop_id'] == end_stop_id]['stop_sequence'].values[0]
+
+    in_between_stops = trip_stop_times[(trip_stop_times['stop_sequence'] >= start_sequence) &
+                                       (trip_stop_times['stop_sequence'] <= end_sequence)]
+    
+    in_between_stops_details = in_between_stops.merge(feed.stops, on='stop_id', how='left')
+    drop_cols = ['location_type', 'parent_station', 'stop_desc', 'stop_headsign', 'stop_timezone', 'stop_url', 'zone_id']
+    in_between_stops_details = in_between_stops_details.drop(drop_cols, axis=1)
+
+    return in_between_stops_details
+
+def get_stop_id(stop_name):
+    stop_row = feed.stops[feed.stops['stop_name'] == stop_name]
+    if not stop_row.empty:
+        return stop_row['stop_id'].values[0]
+    return None
+
+@app.route('/api/trips_between_stops', methods=['GET'])
+def trips_between_stops():
+    start_stop_name = request.args.get('start_stop_name')
+    end_stop_name = request.args.get('end_stop_name')
+
+    if not start_stop_name or not end_stop_name:
+        return jsonify({"error": "start_stop_name and end_stop_name are required"}), 400
+
+    start_stop_id = get_stop_id(start_stop_name)
+    end_stop_id = get_stop_id(end_stop_name)
+
+    if not start_stop_id or not end_stop_id:
+        return jsonify({"error": "Invalid stop names"}), 404
+    
+    trips_start_id = feed.stop_times[feed.stop_times['stop_id'] == start_stop_id]['trip_id'].unique()
+    trips_end_id = feed.stop_times[feed.stop_times['stop_id'] == end_stop_id]['trip_id'].unique()
+
+    possible_trips = set(trips_start_id).intersection(set(trips_end_id))
+
+    if len(possible_trips) == 0:
+        return jsonify({"message": "No routes found between the given stops"}), 404
+    
+    trips_stats = feed.compute_trip_stats()
+    
+    trip_ids = list(possible_trips)
+    trip_route_infos = trips_stats[trips_stats['trip_id'].isin(trip_ids)].merge(feed.routes[['route_id', 'route_short_name', 'route_long_name', 'route_color']], on='route_id', how='left')
+
+    return  jsonify({
+        'start_stop_name':  start_stop_name,
+        'end_stop_name': end_stop_name,
+        'start_stop_id':  start_stop_id,
+        'end_stop_id': end_stop_id,
+        'total_results':  len(trip_ids),
+        'trips_between_stops': trip_route_infos.to_dict(orient='records')
+    }), 200
+
+@app.route('/api/routes_between_stops', methods=['GET'])
+def routes_between_stops():
+    trip_id = request.args.get('trip_id')
+    start_stop_id = request.args.get('start_stop_id')
+    end_stop_id = request.args.get('end_stop_id')
+
+    trips_stats = feed.compute_trip_stats()
+
+    trip_route_info = trips_stats[trips_stats['trip_id'] == trip_id].merge(feed.routes[['route_id', 'route_short_name', 'route_long_name', 'route_color']], on='route_id', how='left')
+
+    shape_id = trip_route_info['shape_id'].values[0]
+    route_shape = feed.shapes[feed.shapes['shape_id'] == trip_route_info['shape_id'].values[0]].sort_values(
+        by=['shape_pt_sequence']
+    ).reset_index(drop=True)
+    route_shape = route_shape[['shape_pt_lat', 'shape_pt_lon']].values.tolist()
+
+    in_between_stops = get_in_between_stops(trip_id, start_stop_id, end_stop_id)
+
+    
+    total_distance = in_between_stops.iloc[-1]['shape_dist_traveled']
+    total_duration = in_between_stops.iloc[-1]['time_diff'].sum()
+
+    expected_speed_kmph = total_distance / total_duration
+
+    return jsonify({
+        'trip_route_info':  trip_route_info.to_dict(orient='records'),
+        'route_shape': route_shape,
+        'in_between_stops':  in_between_stops.to_dict(orient='records'),
+        'total_distance':  total_distance,
+        'expected_duration': total_duration,
+        'expected_speed_kmph': expected_speed_kmph
+    }), 200
 
 
 if  __name__ == '__main__':
