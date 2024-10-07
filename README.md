@@ -25,9 +25,44 @@ The current public transportation systems often suffer from inefficient scheduli
 - **Programming Language**: Python, JavaScript
 - **Libraries/Frameworks**: 
   - Machine Learning libraries (e.g., `scikit-learn`, `pandas`, etc.)
-  - Data visualization tools : matplotlib, plotly, seaborn
-  - Map Generation : Shapely, Folium
+  - Data visualization tools: `matplotlib`, `plotly`, `seaborn`
+  - Map Generation: `Shapely`, `Folium`
   - GTFS kit
-  - Frontend : React
-  - Backend : Flask
-  - 3D Model : Spline
+  - Frontend: `React`
+  - Backend: `Flask`
+  - 3D Model: `Spline`
+
+## Process to Run the App
+
+### Backend Server
+1. Install the required libraries:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   or for macOS:
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+2. Run the backend server:
+   ```bash
+   python analysis_apis.py
+   ```
+   or for macOS:
+   ```bash
+   python3 analysis_apis.py
+   ```
+
+### Frontend Server
+1. Install the node modules:
+   ```bash
+   npm install
+   ```
+
+2. Start the frontend server:
+   ```bash
+   npm run start
+   ```
+
+### Note:
+If you are running your code in Codespaces, go to `configContext.js` and change the base URL there. Otherwise, uncomment the `http://127.0.0.1:5000` line to set the correct backend URL.
