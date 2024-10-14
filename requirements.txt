@@ -14,5 +14,6 @@ xgboost
 gtfs-kit
 modin[all]
 scikit-learn-intelex
-
 category-encoders
+daal4py
+joblib
