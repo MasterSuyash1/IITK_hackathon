@@ -27,13 +27,12 @@ import {
     FaChartBar,
 } from "react-icons/fa";
 
-// import { FaTachometerAlt } from "react-icons/fa";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import RoutesModal from "./components/RoutesModal";
-import TripsModal from "./components/TripsModal"; // Import TripsModal
-import StopsModal from "./components/StopsModal"; // Import StopsModal
-import CalendarDatesModal from "./components/CalendarDatesModal"; // Import CalendarDatesModal
+import TripsModal from "./components/TripsModal";
+import StopsModal from "./components/StopsModal";
+import CalendarDatesModal from "./components/CalendarDatesModal";
 import FrequentRoutesModal from "./components/FrequentRoutesModal";
 import PeakHourTraffic from "./components/PeakHourTraffic";
 import TripPlanner from "./components/TripPlanner";
@@ -66,19 +65,6 @@ function App() {
         userSatisfaction: "4.8/5",
     });
     const [activeView, setActiveView] = useState("overview");
-    const [isRoutesModalOpen, setIsRoutesModalOpen] = useState(false);
-    const [isTripsModalOpen, setIsTripsModalOpen] = useState(false); // Modal state for Trips
-    const [isStopsModalOpen, setIsStopsModalOpen] = useState(false); // Modal state for Stops
-    const [isCalendarDatesModalOpen, setIsCalendarDatesModalOpen] =
-        useState(false); // Modal state for Calendar Dates
-    const [frequentRoutes, setFrequentRoutes] = useState();
-    const [peak_hour_traffic, setPeak_hour_traffic] = useState(false);
-    const [trip_planner, set_trip_planner] = useState(false);
-    const [fsRoutes, setfsRoutes] = useState(false);
-    const [slRoutes, setslRoutes] = useState(false);
-    const [routeEfficiency, setrouteEfficiency] = useState(false);
-    const [trip_stats, set_trip_stats] = useState(false);
-    const [route_stats,set_route_stats]=useState(false);
 
     const cityCoordinates = {
         "New York": [40.7128, -74.006],
@@ -91,94 +77,107 @@ function App() {
         return () => clearInterval(timer);
     }, []);
 
+    const closeModals = () => setActiveView(null);
+
     return (
         <Flex>
-            <Box
-                w="250px"
-                bg={bgColor}
-                boxShadow="lg"
-                h="100vh"
-                overflow="auto"
-            >
-                {/* <Heading size="lg" mb={8} color={textColor}>
-                    Dashboard
-                </Heading> */}
-
+            <Box w="250px" bg={bgColor} boxShadow="lg" h="auto" overflow="auto">
                 <Text fontSize="2xl" fontWeight="bold" p={4}>
                     Dashboard
                 </Text>
                 <VStack align="stretch">
+                    <Button
+                        leftIcon={<Icon as={FaTachometerAlt} />}
+                        onClick={() => setActiveView("overview")}
+                        justifyContent="flex-start"
+                        variant="ghost"
+                        _hover={{ bg: buttonHoverBg }}
+                        w="auto"
+                        color={textColor}
+                        bg={
+                            activeView === "overview"
+                                ? buttonHoverBg
+                                : "transparent"
+                        }
+                    >
+                        Overview
+                    </Button>
                     {[
                         {
                             icon: FaRoute,
                             text: "View Routes",
-                            onClick: () => setIsRoutesModalOpen(true),
+                            view: "routes",
                         },
                         {
                             icon: FaBus,
                             text: "View Trips",
-                            onClick: () => setIsTripsModalOpen(true),
+                            view: "trips",
                         },
                         {
                             icon: FaMapMarkerAlt,
                             text: "View Stops",
-                            onClick: () => setIsStopsModalOpen(true),
+                            view: "stops",
                         },
                         {
                             icon: FaCalendarAlt,
                             text: "View Calendar Dates",
-                            onClick: () => setIsCalendarDatesModalOpen(true),
+                            view: "calendarDates",
                         },
                         {
                             icon: FaChartLine,
                             text: "Frequent Routes",
-                            onClick: () => setFrequentRoutes(true),
+                            view: "frequentRoutes",
                         },
                         {
                             icon: FaClock,
                             text: "Peak Hour Traffic",
-                            onClick: () => setPeak_hour_traffic(true),
+                            view: "peakHourTraffic",
                         },
                         {
                             icon: FaMapSigns,
                             text: "Trip Planner",
-                            onClick: () => set_trip_planner(true),
+                            view: "tripPlanner",
                         },
                         {
                             icon: FaBus,
                             text: "Fastest/Slowest Routes",
-                            onClick: () => setfsRoutes(true),
+                            view: "fsRoutes",
                         },
                         {
                             icon: FaRulerHorizontal,
                             text: "Shortest/Longest Routes",
-                            onClick: () => setslRoutes(true),
+                            view: "slRoutes",
                         },
                         {
                             icon: FaBalanceScale,
                             text: "Route Efficiency",
-                            onClick: () => setrouteEfficiency(true),
+                            view: "routeEfficiency",
                         },
                         {
                             icon: FaChartBar,
                             text: "Trip Stats",
-                            onClick: () => set_trip_stats(true),
+                            view: "tripStats",
                         },
                         {
                             icon: FaChartLine,
                             text: "Route Stats",
-                            onClick: () => set_route_stats(true),
+                            view: "routeStats",
                         },
                     ].map((item, index) => (
                         <Button
                             key={index}
                             leftIcon={<Icon as={item.icon} />}
-                            onClick={item.onClick}
+                            onClick={() => setActiveView(item.view)}
                             justifyContent="flex-start"
-                            // variant="ghost"
+                            variant="ghost"
                             _hover={{ bg: buttonHoverBg }}
                             w="auto"
                             color={textColor}
+                            bg={
+                                activeView === item.view
+                                    ? buttonHoverBg
+                                    : "transparent"
+                            }
                         >
                             {item.text}
                         </Button>
@@ -251,65 +250,53 @@ function App() {
                     </>
                 )}
 
-                {/* RoutesModal */}
-                {isRoutesModalOpen && (
-                    <RoutesModal onClose={() => setIsRoutesModalOpen(false)} />
+                {activeView === "routes" && (
+                    <RoutesModal onClose={() => setActiveView("overview")} />
                 )}
-
-                {/* TripsModal */}
-                {isTripsModalOpen && (
-                    <TripsModal onClose={() => setIsTripsModalOpen(false)} /> // Pass onClose handler
+                {activeView === "trips" && (
+                    <TripsModal onClose={() => setActiveView("overview")} />
                 )}
-
-                {/* StopsModal */}
-                {isStopsModalOpen && (
-                    <StopsModal onClose={() => setIsStopsModalOpen(false)} /> // Pass onClose handler
+                {activeView === "stops" && (
+                    <StopsModal onClose={() => setActiveView("overview")} />
                 )}
-
-                {/* CalendarDatesModal */}
-                {isCalendarDatesModalOpen && (
+                {activeView === "calendarDates" && (
                     <CalendarDatesModal
-                        onClose={() => setIsCalendarDatesModalOpen(false)}
-                    /> // Pass onClose handler
-                )}
-
-                {/* FrequentModal */}
-                {frequentRoutes && (
-                    <FrequentRoutesModal
-                        onClose={() => setFrequentRoutes(false)}
-                    /> // Pass onClose handler
-                )}
-                {/* FrequentModal */}
-                {peak_hour_traffic && (
-                    <PeakHourTraffic
-                        onClose={() => setPeak_hour_traffic(false)}
-                    /> // Pass onClose handler
-                )}
-                {/* Trip Planner */}
-                {trip_planner && (
-                    <TripPlanner onClose={() => set_trip_planner(false)} /> // Pass onClose handler
-                )}
-                {/* Fastest Slowest Routes */}
-                {fsRoutes && (
-                    <FastestSlowestRoutes onClose={() => setfsRoutes(false)} />
-                )}
-                {/* Shortest Longest Routes */}
-                {slRoutes && (
-                    <ShortestLongestRoutes onClose={() => setslRoutes(false)} />
-                )}
-                {/* Route Efficiency */}
-                {routeEfficiency && (
-                    <RouteEfficiency
-                        onClose={() => setrouteEfficiency(false)}
+                        onClose={() => setActiveView("overview")}
                     />
                 )}
-                {/* Trip Stats */}
-                {trip_stats && (
-                    <TripStatsModal onClose={() => setrouteEfficiency(false)} />
+                {activeView === "frequentRoutes" && (
+                    <FrequentRoutesModal
+                        onClose={() => setActiveView("overview")}
+                    />
                 )}
-                {/* Route Stats */}
-                {route_stats && (
-                    <RouteStats onClose={() => set_route_stats(false)} />
+                {activeView === "peakHourTraffic" && (
+                    <PeakHourTraffic
+                        onClose={() => setActiveView("overview")}
+                    />
+                )}
+                {activeView === "tripPlanner" && (
+                    <TripPlanner onClose={() => setActiveView("overview")} />
+                )}
+                {activeView === "fsRoutes" && (
+                    <FastestSlowestRoutes
+                        onClose={() => setActiveView("overview")}
+                    />
+                )}
+                {activeView === "slRoutes" && (
+                    <ShortestLongestRoutes
+                        onClose={() => setActiveView("overview")}
+                    />
+                )}
+                {activeView === "routeEfficiency" && (
+                    <RouteEfficiency
+                        onClose={() => setActiveView("overview")}
+                    />
+                )}
+                {activeView === "tripStats" && (
+                    <TripStatsModal onClose={() => setActiveView("overview")} />
+                )}
+                {activeView === "routeStats" && (
+                    <RouteStats onClose={() => setActiveView("overview")} />
                 )}
             </Box>
         </Flex>
