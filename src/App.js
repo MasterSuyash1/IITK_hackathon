@@ -41,6 +41,7 @@ import ShortestLongestRoutes from "./components/ShortestLongestRoutes";
 import RouteEfficiency from "./components/RouteEfficiency";
 import TripStatsModal from "./components/TripStatsModal";
 import RouteStats from "./components/RouteStats";
+import TrainModel from "./components/TrainModel";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -162,6 +163,11 @@ function App() {
                             icon: FaChartLine,
                             text: "Route Stats",
                             view: "routeStats",
+                        },
+                        {
+                            icon: FaChartLine,
+                            text: "Train Model",
+                            view: "trainModel",
                         },
                     ].map((item, index) => (
                         <Button
@@ -297,6 +303,9 @@ function App() {
                 )}
                 {activeView === "routeStats" && (
                     <RouteStats onClose={() => setActiveView("overview")} />
+                )}
+                {activeView === "trainModel" && (
+                    <TrainModel onClose={() => setActiveView("overview")} />
                 )}
             </Box>
         </Flex>
