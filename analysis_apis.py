@@ -48,7 +48,7 @@ import gtfs_kit as gk
 app = Flask(__name__)
 CORS(app)
 
-path = Path('.\data\gtfs-nyc-2023.zip')
+path = Path('data/gtfs-nyc-2023.zip')
 feed = gk.read_feed(path, dist_units='km')
 # print(feed.validate())
 
@@ -80,8 +80,10 @@ def get_routes():
     """
     API to get the list of routes from the GTFS feed.
     """
-    routes_df = feed.routes.fillna('NA')  # Replace null values with 'NA'
+    routes_df = feed.routes.fillna('NA')  # Replace NaN with a placeholder like 'NA'
     routes_json = routes_df.to_dict(orient='records')
+    
+    # print("Routes JSON (after replacing NaN):", routes_json)  # Log modified response
     return jsonify(routes_json), 200
 
 @app.route('/route/<route_id>', methods=['GET'])
@@ -90,7 +92,9 @@ def get_route_by_id(route_id):
     API to get the details of a specific route by its ID.
     """
     route = feed.routes[feed.routes['route_id'] == route_id]
+
     if not route.empty:
+        route = route.fillna('NA')  # Replace NaN with 'NA'
         route_json = route.to_dict(orient='records')
         return jsonify(route_json), 200
     else:
@@ -99,9 +103,9 @@ def get_route_by_id(route_id):
 @app.route('/stops', methods=['GET'])
 def get_stops():
     """
-    API to get the list of all stops from the GTFS feed.
+    API to get the list of all stops from the GTFS feed, replacing NaN values.
     """
-    stops_df = feed.stops
+    stops_df = feed.stops.fillna("NA")  # Replace NaN with "NA" or choose None to send null
     stops_json = stops_df.to_dict(orient='records')
     return jsonify(stops_json), 200
 
@@ -122,10 +126,12 @@ def get_trips():
     """
     API to get the list of all trips from the GTFS feed.
     """
-    trips_df = feed.trips
+    trips_df = feed.trips.fillna('NA')  # Replace NaN with a placeholder like 'NA'
     trips_json = trips_df.to_dict(orient='records')
+    
+    # print("Trips JSON (after replacing NaN):", trips_json)  # Optional: Log modified response
     return jsonify(trips_json), 200
-
+  
 @app.route('/trip/<trip_id>', methods=['GET'])
 def get_trip_by_id(trip_id):
     """
@@ -133,7 +139,7 @@ def get_trip_by_id(trip_id):
     """
     trip = feed.trips[feed.trips['trip_id'] == trip_id]
     if not trip.empty:
-        trip_json = trip.to_dict(orient='records')
+        trip_json = trip.fillna('NA').to_dict(orient='records')  # Replace NaN with 'NA'
         return jsonify(trip_json), 200
     else:
         return jsonify({'error': 'Trip not found'}), 404
@@ -209,7 +215,13 @@ def get_route_stats():
 
     # Compute route_stats for the specific date
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    cols_round_off = ['mean_headway', 'mean_trip_distance', 'mean_trip_duration', 'service_distance', 'service_duration', 'service_speed']
+    route_stats[cols_round_off] = route_stats[cols_round_off].round(2)
+    route_stats['mean_trip_duration'] = route_stats['mean_trip_duration'] * 60
+    route_stats['service_duration'] = route_stats['service_duration'] * 60
+    route_stats[['mean_headway', 'min_headway', 'max_headway']].fillna(0, inplace=True)
+    route_stats.fillna('NA',  inplace=True)
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']], on='route_id', how='left')
 
     # Convert route_stats DataFrame to JSON and return it
     route_stats_json = route_stats.to_dict(orient='records')
@@ -272,14 +284,19 @@ def get_trip_stats():
         'speed': ['mean', 'min', 'max'] 
     }).reset_index()
 
+    trip_duration_cols = ['mean_duration', 'min_duration', 'max_duration', 'mean_speed', 'min_speed', 'max_speed']
+    trip_period_cols = ['mean_duration', 'min_duration', 'max_duration', 'mean_speed', 'min_speed', 'max_speed']
 
+    
     # Convert analysis DataFrame to JSON
     trip_duration_analysis.columns = ['time_of_day', 'num_trips', 'mean_duration', 'min_duration', 'max_duration',
                                       'mean_speed', 'min_speed', 'max_speed']
+    trip_duration_analysis[trip_duration_cols] = trip_duration_analysis[trip_duration_cols].round(2)
     trip_duration_analysis_json = trip_duration_analysis.to_dict(orient='records')
 
     trip_period_analysis.columns = ['period_time', 'num_trips', 'mean_duration', 'min_duration', 'max_duration',
                                       'mean_speed', 'min_speed', 'max_speed']
+    trip_period_analysis[trip_period_cols] = trip_period_analysis[trip_period_cols].round(2)
     trip_period_analysis_json = trip_period_analysis.to_dict(orient='records')
     
     return jsonify({'trip_duration_analysis': trip_duration_analysis_json, 
@@ -326,7 +343,8 @@ def get_shortest_longest_routes():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    route_stats['mean_trip_distance'] = route_stats['mean_trip_distance'].round(2)
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']],on='route_id', how='left')
 
     shortest_routes = route_stats.sort_values(by='mean_trip_distance').head(10)
     longest_routes = route_stats.sort_values(by='mean_trip_distance', ascending=False).head(10)
@@ -347,11 +365,16 @@ def get_slowest_fastest_routes():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
+    route_stats['service_speed'] = route_stats['service_speed'].round(2)
     route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
 
-    slowest_fastest_routes = route_stats.sort_values(by='service_speed')
+    slowest_routes = route_stats.sort_values(by='service_speed').head(10)
+    fastest_routes = route_stats.sort_values(by='service_speed', ascending=False).head(10)
 
-    return jsonify({'slowest_fastest_routes': slowest_fastest_routes.to_dict(orient='records')}), 200
+    return jsonify({
+        'slowest_routes': slowest_routes.to_dict(orient='records'),
+        'fastest_routes': fastest_routes.to_dict(orient='records')
+    }), 200
 
 
 @app.route('/api/peak_hour_traffic',  methods=['GET'])
@@ -366,7 +389,7 @@ def get_peak_hour_traffic():
     trip_stats = feed.compute_trip_stats()
 
     route_stats = feed.compute_route_stats(trip_stats, dates=[date])
-    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']])
+    route_stats = route_stats.merge(feed.routes[['route_id', 'route_long_name', 'route_color']],on='route_id', how='left')
 
     trip_stats['time_of_day'] = trip_stats['start_time'].apply(classify_time_of_day)
     trip_stats['time_period'] = trip_stats['start_time'].apply(classify_time_period)
@@ -625,48 +648,32 @@ def train_model():
     xgb_model = XGBRegressor(n_estimators=200, random_state=42)
     xgb_model.fit(X_train, y_train)
 
-    t0 = time.time()
     y_pred_xgb = xgb_model.predict(X_test)
-    t1 = time.time()
-    xgb_total = t1 - t0
+
     mse_xgb = mean_squared_error(y_test, y_pred_xgb)
     mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
-
-    d4p_model = d4p.mb.convert_model(xgb_model)
-
-    t2 = time.time()
-    y_pred_d4p = d4p_model.predict(X_test)
-    t3 = time.time()
-    d4p_total = t3 - t2
-
-    mse_d4p = mean_squared_error(y_test, y_pred_d4p)
-    mae_d4p = mean_absolute_error(y_test, y_pred_d4p)
 
     feature_importances = xgb_model.feature_importances_
     feature_importances_df = pd.DataFrame({'Feature': X_train.columns, 'Importance': feature_importances.round(4)})
     feature_importances_df.sort_values(by=['Importance'], ascending=False, inplace=True)
 
-    joblib.dump(d4p_model, 'trained_model.pkl')
+    joblib.dump(xgb_model, 'trained_model.pkl')
 
-    return mse_xgb, mae_xgb, mse_d4p, mae_d4p, feature_importances_df,  xgb_total, d4p_total
-
+    return mse_xgb, mae_xgb, feature_importances_df
 
 # API route to trigger model training
 @app.route('/train_model', methods=['POST'])
 def train_model_api():
     try:
         # Call the training function
-        mse_xgb, mae_xgb, mse_d4p, mae_d4p, feature_importances, xgb_time, d4p_time = train_model()
+        mse, mae, feature_importances = train_model()
+        
         # Return success message with evaluation results
         return jsonify({
             'message': 'Model trained successfully!',
-            'mse_xgb': mse_xgb,
-            'mae_xgb': mae_xgb,
-            'mse_d4p': mse_d4p,
-            'mae_d4p': mae_d4p,
-            'feature_importance': feature_importances.to_dict(orient="records"),
-            'xgb_time': xgb_time,
-            'd4p_time': d4p_time
+            'mse': mse,
+            'mae': mae,
+            'feature_importance': feature_importances.to_dict(orient="records")
         }), 200
     except Exception as e:
         return jsonify({
