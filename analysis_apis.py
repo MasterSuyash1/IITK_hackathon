@@ -625,32 +625,48 @@ def train_model():
     xgb_model = XGBRegressor(n_estimators=200, random_state=42)
     xgb_model.fit(X_train, y_train)
 
+    t0 = time.time()
     y_pred_xgb = xgb_model.predict(X_test)
-
+    t1 = time.time()
+    xgb_total = t1 - t0
     mse_xgb = mean_squared_error(y_test, y_pred_xgb)
     mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
+
+    d4p_model = d4p.mb.convert_model(xgb_model)
+
+    t2 = time.time()
+    y_pred_d4p = d4p_model.predict(X_test)
+    t3 = time.time()
+    d4p_total = t3 - t2
+
+    mse_d4p = mean_squared_error(y_test, y_pred_d4p)
+    mae_d4p = mean_absolute_error(y_test, y_pred_d4p)
 
     feature_importances = xgb_model.feature_importances_
     feature_importances_df = pd.DataFrame({'Feature': X_train.columns, 'Importance': feature_importances.round(4)})
     feature_importances_df.sort_values(by=['Importance'], ascending=False, inplace=True)
 
-    joblib.dump(xgb_model, 'trained_model.pkl')
+    joblib.dump(d4p_model, 'trained_model.pkl')
 
-    return mse_xgb, mae_xgb, feature_importances_df
+    return mse_xgb, mae_xgb, mse_d4p, mae_d4p, feature_importances_df,  xgb_total, d4p_total
+
 
 # API route to trigger model training
 @app.route('/train_model', methods=['POST'])
 def train_model_api():
     try:
         # Call the training function
-        mse, mae, feature_importances = train_model()
-        
+        mse_xgb, mae_xgb, mse_d4p, mae_d4p, feature_importances, xgb_time, d4p_time = train_model()
         # Return success message with evaluation results
         return jsonify({
             'message': 'Model trained successfully!',
-            'mse': mse,
-            'mae': mae,
-            'feature_importance': feature_importances.to_dict(orient="records")
+            'mse_xgb': mse_xgb,
+            'mae_xgb': mae_xgb,
+            'mse_d4p': mse_d4p,
+            'mae_d4p': mae_d4p,
+            'feature_importance': feature_importances.to_dict(orient="records"),
+            'xgb_time': xgb_time,
+            'd4p_time': d4p_time
         }), 200
     except Exception as e:
         return jsonify({
