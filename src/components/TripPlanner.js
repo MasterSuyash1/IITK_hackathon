@@ -13,10 +13,23 @@ import {
     useToast,
     Spinner,
     Text,
-    VStack,
 } from "@chakra-ui/react";
-import Plot from "react-plotly.js"; // Import Plotly
+import Plot from "react-plotly.js";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet"; 
+import "leaflet/dist/leaflet.css"; 
+import L from "leaflet";
 import { useConfig } from "../configContext";
+
+// Custom marker icon for Leaflet (Green marker for start, Red marker for end)
+const customIcon = (iconUrl) =>
+    new L.Icon({
+        iconUrl,
+        iconSize: [25, 41], // Icon size
+        iconAnchor: [12, 41], // Point of the icon that corresponds to the marker's location
+        popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
+        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+        shadowSize: [41, 41], // Shadow size
+    });
 
 const TripPlanner = ({ onClose }) => {
     const { baseURL } = useConfig();
@@ -47,9 +60,7 @@ const TripPlanner = ({ onClose }) => {
         }
     };
 
-    const normalizeStopName = (stopName) => {
-        return stopName.trim().replace(/\s+/g, " ");
-    };
+    const normalizeStopName = (stopName) => stopName.trim().replace(/\s+/g, " ");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -132,34 +143,26 @@ const TripPlanner = ({ onClose }) => {
                     {trip.route_short_name} - {trip.route_long_name}
                 </Td>
                 <Td>{trip.trip_id}</Td>
-                <Td>
-                    {trip.duration
-                        ? `${(trip.duration * 60).toFixed(0)} minutes`
-                        : "N/A"}
-                </Td>
-                <Td>
-                    {trip.distance ? `${trip.distance.toFixed(2)} km` : "N/A"}
-                </Td>
+                <Td>{trip.duration ? `${(trip.duration * 60).toFixed(0)} minutes` : "N/A"}</Td>
+                <Td>{trip.distance ? `${trip.distance.toFixed(2)} km` : "N/A"}</Td>
             </Tr>
         ));
     };
 
-    const handleNextPage = () => {
-        setCurrentPage((prev) => prev + 1);
-    };
+    const handleNextPage = () => setCurrentPage((prev) => prev + 1);
 
-    const handlePreviousPage = () => {
-        setCurrentPage((prev) => Math.max(prev - 1, 1));
-    };
+    const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
     const totalResults = results.total_results || 0;
     const totalPages = Math.ceil(totalResults / 10);
 
     // Extract data for Plotly graph
-    const tripDurations = results.trips_between_stops.map((trip) =>
-        (trip.duration * 60).toFixed(0)
-    );
+    const tripDurations = results.trips_between_stops.map((trip) => (trip.duration * 60).toFixed(0));
     const tripIds = results.trips_between_stops.map((trip) => trip.trip_id);
+
+    // Coordinates for the map
+    const startStopCoordinates = stops.find((stop) => stop.stop_name === startStop);
+    const endStopCoordinates = stops.find((stop) => stop.stop_name === endStop);
 
     return (
         <Box p={4}>
@@ -240,17 +243,10 @@ const TripPlanner = ({ onClose }) => {
 
                     {totalResults > 10 && (
                         <Box mt={4}>
-                            <Button
-                                onClick={handlePreviousPage}
-                                disabled={currentPage === 1}
-                                mr={2}
-                            >
+                            <Button onClick={handlePreviousPage} disabled={currentPage === 1} mr={2}>
                                 Previous
                             </Button>
-                            <Button
-                                onClick={handleNextPage}
-                                disabled={currentPage * 10 >= totalResults}
-                            >
+                            <Button onClick={handleNextPage} disabled={currentPage * 10 >= totalResults}>
                                 Next
                             </Button>
                             <Box as="span" ml={4}>
@@ -258,15 +254,48 @@ const TripPlanner = ({ onClose }) => {
                             </Box>
                         </Box>
                     )}
+
+                    {/* Leaflet map for stops */}
+                    {startStopCoordinates && endStopCoordinates && (
+                        <Box mt={6}>
+                            <MapContainer
+                                center={[startStopCoordinates.stop_lat, startStopCoordinates.stop_lon]} // Center on the start stop
+                                zoom={13}
+                                style={{ height: "400px", width: "100%" }}
+                            >
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                {/* Marker for the start stop (Green) */}
+                                <Marker
+                                    position={[startStopCoordinates.stop_lat, startStopCoordinates.stop_lon]}
+                                    icon={customIcon("https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png")}
+                                >
+                                    <Popup>{startStopCoordinates.stop_name}</Popup>
+                                </Marker>
+                                {/* Marker for the end stop (Red) */}
+                                <Marker
+                                    position={[endStopCoordinates.stop_lat, endStopCoordinates.stop_lon]}
+                                    icon={customIcon("https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png")}
+                                >
+                                    <Popup>{endStopCoordinates.stop_name}</Popup>
+                                </Marker>
+
+                                {/* Polyline to connect start and end stops */}
+                                <Polyline
+                                    positions={[
+                                        [startStopCoordinates.stop_lat, startStopCoordinates.stop_lon],
+                                        [endStopCoordinates.stop_lat, endStopCoordinates.stop_lon],
+                                    ]}
+                                    color="blue"
+                                    weight={2}
+                                />
+                            </MapContainer>
+                        </Box>
+                    )}
                 </>
             )}
-
-            {/* Close button */}
-            <VStack mt={4}>
-                <Button colorScheme="red" onClick={onClose}>
-                    Close
-                </Button>
-            </VStack>
         </Box>
     );
 };
