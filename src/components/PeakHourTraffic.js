@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useConfig } from "../configContext"; // Import useConfig to get the config
-import Plot from "react-plotly.js"; // Import Plotly component
-
+import { useConfig } from "../configContext";
+import Plot from "react-plotly.js";
 import {
     Box,
     Button,
@@ -19,18 +18,23 @@ import {
     Spinner,
     Flex,
     VStack,
+    useColorMode,
 } from "@chakra-ui/react";
 
+// Include a modern Google font
+// import "@fontsource/poppins";
+
 function PeakHourTraffic({ onClose }) {
-    const { baseURL } = useConfig(); // Get the baseURL from context
+    const { baseURL } = useConfig();
     const [peakHourRoutes, setPeakHourRoutes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [searchDate, setSearchDate] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10); // Number of items per page
+    const [itemsPerPage] = useState(10);
 
-    // Handle search request
+    const { colorMode, toggleColorMode } = useColorMode();
+
     const handleSearch = async () => {
         if (searchDate.trim() === "") {
             setError("Please enter a date");
@@ -46,7 +50,7 @@ function PeakHourTraffic({ onClose }) {
             );
             if (response.status === 200) {
                 setPeakHourRoutes(response.data.peak_hour_routes);
-                setCurrentPage(1); // Reset to page 1 after new data is fetched
+                setCurrentPage(1);
             } else {
                 setError("Error fetching peak hour traffic data.");
             }
@@ -57,26 +61,24 @@ function PeakHourTraffic({ onClose }) {
         }
     };
 
-    // Pagination logic
     const lastIndex = currentPage * itemsPerPage;
     const firstIndex = lastIndex - itemsPerPage;
     const currentItems = peakHourRoutes.slice(firstIndex, lastIndex);
     const totalPages = Math.ceil(peakHourRoutes.length / itemsPerPage);
-    
-    const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
+    const nextPage = () =>
+        setCurrentPage((prev) => Math.min(prev + 1, totalPages));
     const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
-    // Prepare data for Plotly
     const plotData = {
-        x: peakHourRoutes.map(route => route.route_long_name), // X-axis: Route Names
-        y: peakHourRoutes.map(route => route.trip_id), // Y-axis: Number of Trips (or you can change this to another metric)
-        type: 'bar', // Type of chart (bar chart)
-        marker: { color: 'blue' } // Customize bar color
+        x: peakHourRoutes.map((route) => route.route_long_name),
+        y: peakHourRoutes.map((route) => route.trip_id),
+        type: "bar",
+        marker: { color: colorMode === "light" ? "purple" : "lightblue" },
     };
 
-    // Function to render route color with a '#' prefix
     const renderColorBox = (color) => {
-        const formattedColor = `#${color}`; // Add '#' prefix to color
+        const formattedColor = `#${color}`;
         return (
             <Box
                 width="20px"
@@ -89,33 +91,64 @@ function PeakHourTraffic({ onClose }) {
     };
 
     return (
-        <Box p={6} bg="gray.50" borderRadius="md" boxShadow="md">
-            <Text fontSize="2xl" mb={4}>
-                Peak Hour Traffic
-            </Text>
+        <Box
+            p={6}
+            bg={colorMode === "light" ? "gray.100" : "gray.700"}
+            borderRadius="md"
+            boxShadow="xl"
+            maxW="1200px"
+            mx="auto"
+            fontFamily="Poppins, sans-serif"
+        >
+            <Flex justify="space-between" mb={4}>
+                <Text
+                    fontSize="3xl"
+                    fontWeight="bold"
+                    color={colorMode === "light" ? "gray.800" : "gray.200"}
+                >
+                    Peak Hour Traffic
+                </Text>
+                <Button onClick={toggleColorMode} colorScheme="purple">
+                    {colorMode === "light" ? "Dark Mode" : "Light Mode"}
+                </Button>
+            </Flex>
 
-            {/* Search Bar */}
             <InputGroup mb={4}>
                 <Input
                     placeholder="Enter date (YYYYMMDD)"
                     value={searchDate}
                     onChange={(e) => setSearchDate(e.target.value)}
+                    bg={colorMode === "light" ? "white" : "gray.600"}
+                    color={colorMode === "light" ? "gray.800" : "gray.100"}
+                    borderColor="purple.300"
+                    _hover={{ borderColor: "purple.500" }}
                 />
                 <InputRightElement width="4.5rem">
-                    <Button h="1.75rem" size="sm" onClick={handleSearch}>
+                    <Button
+                        h="1.75rem"
+                        size="sm"
+                        onClick={handleSearch}
+                        colorScheme="purple"
+                    >
                         Search
                     </Button>
                 </InputRightElement>
             </InputGroup>
 
             {loading ? (
-                <Spinner size="lg" />
+                <Spinner size="xl" color="purple.500" />
             ) : error ? (
                 <Text color="red.500">{error}</Text>
             ) : (
                 <>
                     {currentItems.length > 0 && (
-                        <Table variant="simple" size="sm">
+                        <Table
+                            variant="striped"
+                            colorScheme="purple"
+                            size="md"
+                            borderRadius="md"
+                            boxShadow="md"
+                        >
                             <Thead>
                                 <Tr>
                                     <Th>Route ID</Th>
@@ -130,7 +163,9 @@ function PeakHourTraffic({ onClose }) {
                                     <Tr key={index}>
                                         <Td>{route.route_id}</Td>
                                         <Td>{route.route_long_name}</Td>
-                                        <Td>{renderColorBox(route.route_color)}</Td> {/* Render color box */}
+                                        <Td>
+                                            {renderColorBox(route.route_color)}
+                                        </Td>
                                         <Td>{route.trip_id}</Td>
                                         <Td>{route.time_period.join(", ")}</Td>
                                     </Tr>
@@ -139,30 +174,53 @@ function PeakHourTraffic({ onClose }) {
                         </Table>
                     )}
 
-                    {/* Plotly Chart */}
                     {peakHourRoutes.length > 0 && (
-                        <Plot
-                            data={[plotData]}
-                            layout={{
-                                title: 'Peak Hour Traffic Analysis',
-                                xaxis: { title: 'Route Name' },
-                                yaxis: { title: 'Number of Trips' },
-                            }}
-                            style={{ width: "100%", height: "400px" }}
-                        />
+                        <Box mt={6}>
+                            <Plot
+                                data={[plotData]}
+                                layout={{
+                                    title: "Peak Hour Traffic Analysis",
+                                    xaxis: { title: "Route Name" },
+                                    yaxis: { title: "Number of Trips" },
+                                    paper_bgcolor:
+                                        colorMode === "light"
+                                            ? "rgba(0,0,0,0)"
+                                            : "rgba(255,255,255,0.1)",
+                                    plot_bgcolor:
+                                        colorMode === "light"
+                                            ? "rgba(0,0,0,0)"
+                                            : "rgba(255,255,255,0.1)",
+                                    font: {
+                                        color:
+                                            colorMode === "light"
+                                                ? "black"
+                                                : "white",
+                                    },
+                                }}
+                                style={{ width: "100%", height: "400px" }}
+                            />
+                        </Box>
                     )}
 
-                    {/* Pagination Controls */}
-                    <Flex justifyContent="space-between" mt={4}>
-                        <Button onClick={prevPage} disabled={currentPage === 1}>
+                    <Flex justify="space-between" mt={6} alignItems="center">
+                        <Button
+                            onClick={prevPage}
+                            disabled={currentPage === 1}
+                            colorScheme="purple"
+                        >
                             Previous
                         </Button>
-                        <Text>
+                        <Text
+                            color={
+                                colorMode === "light" ? "gray.700" : "gray.100"
+                            }
+                        >
                             Page {currentPage} of {totalPages}
                         </Text>
                         <Button
                             onClick={nextPage}
                             disabled={currentPage === totalPages}
+                            colorScheme="purple"
                         >
                             Next
                         </Button>
@@ -170,8 +228,7 @@ function PeakHourTraffic({ onClose }) {
                 </>
             )}
 
-            {/* Close button */}
-            <VStack mt={4}>
+            <VStack mt={6}>
                 <Button colorScheme="red" onClick={onClose}>
                     Close
                 </Button>

@@ -79,7 +79,8 @@ function ShortestLongestRoutes({ onClose }) {
             <Tr key={index}>
                 <Td>{route.route_id || "NA"}</Td>
                 <Td>{route.route_long_name || "NA"}</Td>
-                <Td>{renderColorBox(route.route_color) || "NA"}</Td> {/* Updated to use renderColorBox */}
+                <Td>{renderColorBox(route.route_color) || "NA"}</Td>{" "}
+                {/* Updated to use renderColorBox */}
                 <Td>{route.mean_trip_distance || "NA"}</Td>
             </Tr>
         ));
@@ -102,21 +103,29 @@ function ShortestLongestRoutes({ onClose }) {
 
     // Function to prepare data for Plotly
     const preparePlotData = () => {
-        const shortestDistances = routesData.shortest_routes.map(route => route.mean_trip_distance || 0);
-        const longestDistances = routesData.longest_routes.map(route => route.mean_trip_distance || 0);
+        const shortestDistances = routesData.shortest_routes.map(
+            (route) => route.mean_trip_distance || 0
+        );
+        const longestDistances = routesData.longest_routes.map(
+            (route) => route.mean_trip_distance || 0
+        );
 
         return {
             shortest: {
-                x: routesData.shortest_routes.map(route => route.route_long_name),
+                x: routesData.shortest_routes.map(
+                    (route) => route.route_long_name
+                ),
                 y: shortestDistances,
-                name: 'Shortest Routes',
-                type: 'bar',
+                name: "Shortest Routes",
+                type: "bar",
             },
             longest: {
-                x: routesData.longest_routes.map(route => route.route_long_name),
+                x: routesData.longest_routes.map(
+                    (route) => route.route_long_name
+                ),
                 y: longestDistances,
-                name: 'Longest Routes',
-                type: 'bar',
+                name: "Longest Routes",
+                type: "bar",
             },
         };
     };
@@ -192,17 +201,20 @@ function ShortestLongestRoutes({ onClose }) {
                             Distance Comparison
                         </Text>
                         <Plot
-                            data={[preparePlotData().shortest, preparePlotData().longest]}
+                            data={[
+                                preparePlotData().shortest,
+                                preparePlotData().longest,
+                            ]}
                             layout={{
-                                title: 'Shortest vs Longest Routes',
-                                barmode: 'group',
+                                title: "Shortest vs Longest Routes",
+                                barmode: "group",
                                 xaxis: {
-                                    title: 'Route Name',
+                                    title: "Route Name",
                                 },
                                 yaxis: {
-                                    title: 'Mean Trip Distance',
+                                    title: "Mean Trip Distance",
                                 },
-                                width: 1400,  // Width in pixels
+                                width: 1400, // Width in pixels
                                 height: 500, // Height in pixels
                             }}
                         />

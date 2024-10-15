@@ -13,10 +13,20 @@ import {
     useToast,
     Spinner,
     Text,
+    Flex,
+    VStack,
+    useColorMode,
+    Input,
 } from "@chakra-ui/react";
 import Plot from "react-plotly.js";
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet"; 
-import "leaflet/dist/leaflet.css"; 
+import {
+    MapContainer,
+    TileLayer,
+    Marker,
+    Popup,
+    Polyline,
+} from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useConfig } from "../configContext";
 
@@ -24,11 +34,12 @@ import { useConfig } from "../configContext";
 const customIcon = (iconUrl) =>
     new L.Icon({
         iconUrl,
-        iconSize: [25, 41], // Icon size
-        iconAnchor: [12, 41], // Point of the icon that corresponds to the marker's location
-        popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-        shadowSize: [41, 41], // Shadow size
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+        shadowSize: [41, 41],
     });
 
 const TripPlanner = ({ onClose }) => {
@@ -40,6 +51,7 @@ const TripPlanner = ({ onClose }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const toast = useToast();
+    const { colorMode, toggleColorMode } = useColorMode();
 
     useEffect(() => {
         fetchStops();
@@ -60,7 +72,8 @@ const TripPlanner = ({ onClose }) => {
         }
     };
 
-    const normalizeStopName = (stopName) => stopName.trim().replace(/\s+/g, " ");
+    const normalizeStopName = (stopName) =>
+        stopName.trim().replace(/\s+/g, " ");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -79,8 +92,12 @@ const TripPlanner = ({ onClose }) => {
         setIsLoading(true);
 
         try {
-            const encodedStartStop = encodeURIComponent(normalizeStopName(startStop)).replace(/%20/g, "%20");
-            const encodedEndStop = encodeURIComponent(normalizeStopName(endStop)).replace(/%20/g, "%20");
+            const encodedStartStop = encodeURIComponent(
+                normalizeStopName(startStop)
+            ).replace(/%20/g, "%20");
+            const encodedEndStop = encodeURIComponent(
+                normalizeStopName(endStop)
+            ).replace(/%20/g, "%20");
 
             const url = `${baseURL}/api/trips_between_stops?start_stop_name=${encodedStartStop}&end_stop_name=${encodedEndStop}`;
 
@@ -103,7 +120,9 @@ const TripPlanner = ({ onClose }) => {
             console.error("API Error:", error.response || error);
             setResults({ trips_between_stops: [] });
 
-            const errorMessage = error.response?.data?.error || "An error occurred while fetching trips.";
+            const errorMessage =
+                error.response?.data?.error ||
+                "An error occurred while fetching trips.";
 
             toast({
                 title: "Error",
@@ -128,7 +147,10 @@ const TripPlanner = ({ onClose }) => {
 
         const startIndex = (currentPage - 1) * 10;
         const endIndex = startIndex + 10;
-        const pageTrips = results.trips_between_stops.slice(startIndex, endIndex);
+        const pageTrips = results.trips_between_stops.slice(
+            startIndex,
+            endIndex
+        );
 
         return pageTrips.map((trip, index) => (
             <Tr key={index}>
@@ -143,72 +165,123 @@ const TripPlanner = ({ onClose }) => {
                     {trip.route_short_name} - {trip.route_long_name}
                 </Td>
                 <Td>{trip.trip_id}</Td>
-                <Td>{trip.duration ? `${(trip.duration * 60).toFixed(0)} minutes` : "N/A"}</Td>
-                <Td>{trip.distance ? `${trip.distance.toFixed(2)} km` : "N/A"}</Td>
+                <Td>
+                    {trip.duration
+                        ? `${(trip.duration * 60).toFixed(0)} minutes`
+                        : "N/A"}
+                </Td>
+                <Td>
+                    {trip.distance ? `${trip.distance.toFixed(2)} km` : "N/A"}
+                </Td>
             </Tr>
         ));
     };
 
     const handleNextPage = () => setCurrentPage((prev) => prev + 1);
-
-    const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+    const handlePreviousPage = () =>
+        setCurrentPage((prev) => Math.max(prev - 1, 1));
 
     const totalResults = results.total_results || 0;
     const totalPages = Math.ceil(totalResults / 10);
 
-    // Extract data for Plotly graph
-    const tripDurations = results.trips_between_stops.map((trip) => (trip.duration * 60).toFixed(0));
+    const tripDurations = results.trips_between_stops.map((trip) =>
+        (trip.duration * 60).toFixed(0)
+    );
     const tripIds = results.trips_between_stops.map((trip) => trip.trip_id);
 
-    // Coordinates for the map
-    const startStopCoordinates = stops.find((stop) => stop.stop_name === startStop);
+    const startStopCoordinates = stops.find(
+        (stop) => stop.stop_name === startStop
+    );
     const endStopCoordinates = stops.find((stop) => stop.stop_name === endStop);
 
     return (
-        <Box p={4}>
-            <form onSubmit={handleSubmit}>
-                <Select
-                    value={startStop}
-                    onChange={(e) => setStartStop(e.target.value)}
-                    placeholder="Select start stop"
-                    mb={4}
+        <Box
+            p={6}
+            bg={colorMode === "light" ? "gray.100" : "gray.700"}
+            borderRadius="md"
+            boxShadow="xl"
+            maxW="1200px"
+            mx="auto"
+            fontFamily="Poppins, sans-serif"
+        >
+            <Flex justify="space-between" mb={4}>
+                <Text
+                    fontSize="3xl"
+                    fontWeight="bold"
+                    color={colorMode === "light" ? "gray.800" : "gray.200"}
                 >
-                    {stops.map((stop) => (
-                        <option key={stop.stop_id} value={stop.stop_name}>
-                            {stop.stop_name}
-                        </option>
-                    ))}
-                </Select>
-
-                <Select
-                    value={endStop}
-                    onChange={(e) => setEndStop(e.target.value)}
-                    placeholder="Select end stop"
-                    mb={4}
-                >
-                    {stops.map((stop) => (
-                        <option key={stop.stop_id} value={stop.stop_name}>
-                            {stop.stop_name}
-                        </option>
-                    ))}
-                </Select>
-
-                <Button type="submit" colorScheme="teal" isLoading={isLoading}>
-                    Find Trips
+                    Trip Planner
+                </Text>
+                <Button onClick={toggleColorMode} colorScheme="purple">
+                    {colorMode === "light" ? "Dark Mode" : "Light Mode"}
                 </Button>
+            </Flex>
+
+            <form onSubmit={handleSubmit}>
+                <VStack spacing={4} align="stretch">
+                    <Select
+                        value={startStop}
+                        onChange={(e) => setStartStop(e.target.value)}
+                        placeholder="Select start stop"
+                        bg={colorMode === "light" ? "white" : "gray.600"}
+                        color={colorMode === "light" ? "gray.800" : "gray.100"}
+                        borderColor="purple.300"
+                        _hover={{ borderColor: "purple.500" }}
+                    >
+                        {stops.map((stop) => (
+                            <option key={stop.stop_id} value={stop.stop_name}>
+                                {stop.stop_name}
+                            </option>
+                        ))}
+                    </Select>
+
+                    <Select
+                        value={endStop}
+                        onChange={(e) => setEndStop(e.target.value)}
+                        placeholder="Select end stop"
+                        bg={colorMode === "light" ? "white" : "gray.600"}
+                        color={colorMode === "light" ? "gray.800" : "gray.100"}
+                        borderColor="purple.300"
+                        _hover={{ borderColor: "purple.500" }}
+                    >
+                        {stops.map((stop) => (
+                            <option key={stop.stop_id} value={stop.stop_name}>
+                                {stop.stop_name}
+                            </option>
+                        ))}
+                    </Select>
+
+                    <Button
+                        type="submit"
+                        colorScheme="purple"
+                        isLoading={isLoading}
+                    >
+                        Find Trips
+                    </Button>
+                </VStack>
             </form>
 
             {startStop && endStop && (
-                <Text mt={4} mb={2}>
+                <Text
+                    mt={4}
+                    mb={2}
+                    color={colorMode === "light" ? "gray.700" : "gray.100"}
+                >
                     Showing trips from {startStop} to {endStop}
                 </Text>
             )}
 
             {isLoading ? (
-                <Spinner mt={4} />
+                <Spinner mt={4} color="purple.500" />
             ) : (
                 <>
-                    <Table variant="simple" mt={4}>
+                    <Table
+                        variant="striped"
+                        colorScheme="purple"
+                        mt={4}
+                        borderRadius="md"
+                        boxShadow="md"
+                    >
                         <Thead>
                             <Tr>
                                 <Th>Route</Th>
@@ -220,7 +293,6 @@ const TripPlanner = ({ onClose }) => {
                         <Tbody>{renderTableRows()}</Tbody>
                     </Table>
 
-                    {/* Plotly chart for trip durations */}
                     {tripDurations.length > 0 && (
                         <Box mt={6}>
                             <Plot
@@ -229,37 +301,76 @@ const TripPlanner = ({ onClose }) => {
                                         x: tripIds,
                                         y: tripDurations,
                                         type: "bar",
-                                        marker: { color: "teal" },
+                                        marker: { color: "purple" },
                                     },
                                 ]}
                                 layout={{
                                     title: "Trip Durations",
                                     xaxis: { title: "Trip ID" },
                                     yaxis: { title: "Duration (minutes)" },
+                                    paper_bgcolor:
+                                        colorMode === "light"
+                                            ? "rgb(237, 242, 247)"
+                                            : "rgb(45, 55, 72)",
+                                    plot_bgcolor:
+                                        colorMode === "light"
+                                            ? "rgb(237, 242, 247)"
+                                            : "rgb(45, 55, 72)",
+                                    font: {
+                                        color:
+                                            colorMode === "light"
+                                                ? "black"
+                                                : "white",
+                                    },
                                 }}
                             />
                         </Box>
                     )}
 
                     {totalResults > 10 && (
-                        <Box mt={4}>
-                            <Button onClick={handlePreviousPage} disabled={currentPage === 1} mr={2}>
+                        <Flex
+                            justify="space-between"
+                            mt={6}
+                            alignItems="center"
+                        >
+                            <Button
+                                onClick={handlePreviousPage}
+                                disabled={currentPage === 1}
+                                colorScheme="purple"
+                            >
                                 Previous
                             </Button>
-                            <Button onClick={handleNextPage} disabled={currentPage * 10 >= totalResults}>
+                            <Text
+                                color={
+                                    colorMode === "light"
+                                        ? "gray.700"
+                                        : "gray.100"
+                                }
+                            >
+                                Page {currentPage} of {totalPages}
+                            </Text>
+                            <Button
+                                onClick={handleNextPage}
+                                disabled={currentPage === totalPages}
+                                colorScheme="purple"
+                            >
                                 Next
                             </Button>
-                            <Box as="span" ml={4}>
-                                Page {currentPage} of {totalPages}
-                            </Box>
-                        </Box>
+                        </Flex>
                     )}
 
-                    {/* Leaflet map for stops */}
                     {startStopCoordinates && endStopCoordinates && (
-                        <Box mt={6}>
+                        <Box
+                            mt={6}
+                            borderRadius="md"
+                            overflow="hidden"
+                            boxShadow="lg"
+                        >
                             <MapContainer
-                                center={[startStopCoordinates.stop_lat, startStopCoordinates.stop_lon]} // Center on the start stop
+                                center={[
+                                    startStopCoordinates.stop_lat,
+                                    startStopCoordinates.stop_lon,
+                                ]}
                                 zoom={13}
                                 style={{ height: "400px", width: "100%" }}
                             >
@@ -267,29 +378,45 @@ const TripPlanner = ({ onClose }) => {
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
-                                {/* Marker for the start stop (Green) */}
                                 <Marker
-                                    position={[startStopCoordinates.stop_lat, startStopCoordinates.stop_lon]}
-                                    icon={customIcon("https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png")}
+                                    position={[
+                                        startStopCoordinates.stop_lat,
+                                        startStopCoordinates.stop_lon,
+                                    ]}
+                                    icon={customIcon(
+                                        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"
+                                    )}
                                 >
-                                    <Popup>{startStopCoordinates.stop_name}</Popup>
+                                    <Popup>
+                                        {startStopCoordinates.stop_name}
+                                    </Popup>
                                 </Marker>
-                                {/* Marker for the end stop (Red) */}
                                 <Marker
-                                    position={[endStopCoordinates.stop_lat, endStopCoordinates.stop_lon]}
-                                    icon={customIcon("https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png")}
+                                    position={[
+                                        endStopCoordinates.stop_lat,
+                                        endStopCoordinates.stop_lon,
+                                    ]}
+                                    icon={customIcon(
+                                        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
+                                    )}
                                 >
-                                    <Popup>{endStopCoordinates.stop_name}</Popup>
+                                    <Popup>
+                                        {endStopCoordinates.stop_name}
+                                    </Popup>
                                 </Marker>
-
-                                {/* Polyline to connect start and end stops */}
                                 <Polyline
                                     positions={[
-                                        [startStopCoordinates.stop_lat, startStopCoordinates.stop_lon],
-                                        [endStopCoordinates.stop_lat, endStopCoordinates.stop_lon],
+                                        [
+                                            startStopCoordinates.stop_lat,
+                                            startStopCoordinates.stop_lon,
+                                        ],
+                                        [
+                                            endStopCoordinates.stop_lat,
+                                            endStopCoordinates.stop_lon,
+                                        ],
                                     ]}
-                                    color="blue"
-                                    weight={2}
+                                    color="purple"
+                                    weight={3}
                                 />
                             </MapContainer>
                         </Box>

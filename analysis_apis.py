@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import modin.pandas as pd
+# import modin.pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -47,6 +47,7 @@ from ai_func import init_database, get_sql_chain, get_sql_response
 import joblib
 
 import gtfs_kit as gk
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)

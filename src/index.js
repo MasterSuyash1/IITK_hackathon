@@ -3,11 +3,12 @@ import ReactDOM from "react-dom/client";
 import { ChakraProvider } from "@chakra-ui/react";
 import App from "./App";
 import { ConfigProvider } from "./configContext"; // Import the ConfigProvider
+import DemandPrediction from "./components/DemandPrediction";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
     <ChakraProvider>
-        <ConfigProvider> {/* Wrap the app with ConfigProvider */}
+        <ConfigProvider>
             <App />
         </ConfigProvider>
     </ChakraProvider>

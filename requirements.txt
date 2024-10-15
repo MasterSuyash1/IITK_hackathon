@@ -30,4 +30,3 @@ langchain-core
 chromadb
 pathlib
 faiss-cpu
-sqlite3

@@ -42,6 +42,7 @@ import RouteEfficiency from "./components/RouteEfficiency";
 import TripStatsModal from "./components/TripStatsModal";
 import RouteStats from "./components/RouteStats";
 import TrainModel from "./components/TrainModel";
+import DemandPrediction from "./components/DemandPrediction";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -168,6 +169,11 @@ function App() {
                             icon: FaChartLine,
                             text: "Train Model",
                             view: "trainModel",
+                        },
+                        {
+                            icon: FaChartLine,
+                            text: "Prediction Demand",
+                            view: "predictionDemand",
                         },
                     ].map((item, index) => (
                         <Button
@@ -306,6 +312,11 @@ function App() {
                 )}
                 {activeView === "trainModel" && (
                     <TrainModel onClose={() => setActiveView("overview")} />
+                )}
+                {activeView === "predictionDemand" && (
+                    <DemandPrediction
+                        onClose={() => setActiveView("overview")}
+                    />
                 )}
             </Box>
         </Flex>

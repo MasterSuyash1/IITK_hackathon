@@ -19,6 +19,11 @@ import gtfs_kit as gk
 
 from db_builder import create_db
 
+
+load_dotenv()
+
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 # create_db()
 
 def init_database() -> SQLDatabase:

@@ -93,8 +93,12 @@ function TrainModel({ onClose }) {
                     <Text fontSize="lg" mb={4} color="green.600">
                         Model trained successfully!
                     </Text>
-                    <Text fontWeight="bold" color="blue.700">Mean Squared Error (MSE): {mse.toFixed(4)}</Text>
-                    <Text fontWeight="bold" color="blue.700">Mean Absolute Error (MAE): {mae.toFixed(4)}</Text>
+                    <Text fontWeight="bold" color="blue.700">
+                        Mean Squared Error (MSE): {mse.toFixed(4)}
+                    </Text>
+                    <Text fontWeight="bold" color="blue.700">
+                        Mean Absolute Error (MAE): {mae.toFixed(4)}
+                    </Text>
 
                     {/* Display Feature Importances Table */}
                     <Box mt={6}>
@@ -114,7 +118,14 @@ function TrainModel({ onClose }) {
                                     <Tr key={index}>
                                         <Td>{item.Feature}</Td>
                                         <Td>{item.Importance.toFixed(4)}</Td>
-                                        <Td>{((item.Importance / totalImportance) * 100).toFixed(2)}%</Td>
+                                        <Td>
+                                            {(
+                                                (item.Importance /
+                                                    totalImportance) *
+                                                100
+                                            ).toFixed(2)}
+                                            %
+                                        </Td>
                                     </Tr>
                                 ))}
                             </Tbody>
@@ -129,13 +140,23 @@ function TrainModel({ onClose }) {
                         <Plot
                             data={[
                                 {
-                                    values: featureImportances.map(item => item.Importance),
-                                    labels: featureImportances.map(item => item.Feature),
+                                    values: featureImportances.map(
+                                        (item) => item.Importance
+                                    ),
+                                    labels: featureImportances.map(
+                                        (item) => item.Feature
+                                    ),
                                     type: "pie",
                                     textinfo: "label+percent",
                                     hoverinfo: "label+value",
                                     marker: {
-                                        colors: ["#ff7f0e", "#1f77b4", "#2ca02c", "#d62728", "#9467bd"],
+                                        colors: [
+                                            "#ff7f0e",
+                                            "#1f77b4",
+                                            "#2ca02c",
+                                            "#d62728",
+                                            "#9467bd",
+                                        ],
                                     },
                                 },
                             ]}
@@ -155,15 +176,22 @@ function TrainModel({ onClose }) {
                         <Plot
                             data={[
                                 {
-                                    x: featureImportances.map(item => item.Feature),
-                                    y: featureImportances.map(item => (item.Importance / totalImportance) * 100),
+                                    x: featureImportances.map(
+                                        (item) => item.Feature
+                                    ),
+                                    y: featureImportances.map(
+                                        (item) =>
+                                            (item.Importance /
+                                                totalImportance) *
+                                            100
+                                    ),
                                     type: "bar",
                                     marker: { color: "blue" },
                                 },
                             ]}
                             layout={{
-                                width: 600,
-                                height: 400,
+                                width: 800,
+                                height: 600,
                                 title: "Feature Importance Percentage Comparison",
                                 yaxis: { title: "Percentage (%)" },
                             }}
