@@ -41,6 +41,8 @@ from xgboost import  XGBRegressor
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+import daal4py as d4p
+
 
 from ai_func import init_database, get_sql_chain, get_sql_response
 
@@ -59,7 +61,7 @@ feed = gk.read_feed(path, dist_units='km')
 model = None
 
 def clean_feed_data(feed):
-  # Removing the space from the Arrival and Departure Time
+#   # Removing the space from the Arrival and Departure Time
   feed.stop_times['arrival_time'] = feed.stop_times['arrival_time'].str.replace(' ', '')
   feed.stop_times['departure_time'] = feed.stop_times['departure_time'].str.replace(' ', '')
 
@@ -652,18 +654,20 @@ def train_model():
     xgb_model = XGBRegressor(n_estimators=200, random_state=42)
     xgb_model.fit(X_train, y_train)
 
-    y_pred_xgb = xgb_model.predict(X_test)
+    d4p_model = d4p.mb.convert_model(xgb_model)
 
-    mse_xgb = mean_squared_error(y_test, y_pred_xgb)
-    mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
+    y_pred_d4p = d4p_model.predict(X_test)
+
+    mse_d4p = mean_squared_error(y_test, y_pred_d4p)
+    mae_d4p = mean_absolute_error(y_test, y_pred_d4p)
 
     feature_importances = xgb_model.feature_importances_
     feature_importances_df = pd.DataFrame({'Feature': X_train.columns, 'Importance': feature_importances.round(4)})
     feature_importances_df.sort_values(by=['Importance'], ascending=False, inplace=True)
 
-    joblib.dump(xgb_model, 'trained_model.pkl')
+    joblib.dump(d4p_model, 'trained_model.pkl')
 
-    return mse_xgb, mae_xgb, feature_importances_df
+    return mse_d4p, mae_d4p, feature_importances_df
 
 # API route to trigger model training
 @app.route('/train_model', methods=['POST'])
@@ -781,7 +785,7 @@ def chat():
     try:
         # db = session.get("db")
         response = get_sql_response(user_query=user_query, db=db, chat_history=chat_history)
-        return jsonify({"AI Response": response})
+        return jsonify({"response": response})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
