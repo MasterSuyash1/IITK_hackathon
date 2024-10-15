@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# import modin.pandas as pd
+import modin.pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -40,6 +40,9 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from xgboost import  XGBRegressor
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+
+from ai_func import init_database, get_sql_chain, get_sql_response
 
 import joblib
 
@@ -757,6 +760,30 @@ def predict_demand():
             'message': 'Error during prediction.',
             'error': str(e)
         }), 500
+
+
+db = init_database()
+
+chat_history = {}
+
+@app.route('/chat_query', methods=['POST'])
+def chat():
+    data = request.get_json()  # Get JSON data from the request body
+    user_query = data.get('query')  # The user's query from the frontend
+    user_id = data.get('user_id')
+
+    if user_id not in chat_history:
+        chat_history[user_id] = []
+
+    chat_history[user_id].append({"User": user_query})
+
+    try:
+        # db = session.get("db")
+        response = get_sql_response(user_query=user_query, db=db, chat_history=chat_history)
+        return jsonify({"AI Response": response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if  __name__ == '__main__':
   app.run(debug=True)
