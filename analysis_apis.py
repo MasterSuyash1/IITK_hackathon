@@ -41,6 +41,9 @@ from xgboost import  XGBRegressor
 from sklearn.cluster import KMeans
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+
+from ai_func import init_database, get_sql_chain, get_sql_response
+
 import joblib
 
 import gtfs_kit as gk
